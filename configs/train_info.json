@@ -1,0 +1,34 @@
+{
+    "model_params": {
+        "r_cut": 7.5,
+        "num_blocks": 4,
+        "embed_feats": 128,
+        "hidden_feats": 128,
+        "use_layer_norm": "True"
+    },
+    "train_params": {
+        "learning_rate": 0.0003,
+        "min_epochs": 1,
+        "max_epochs": 30,
+        "batch_size": 1,
+        "shuffle": true,
+        "save_dir": "runs/trial_run_1",
+        "train_test_ratio": 0.9
+    },
+    "data_params": {
+        "raw_dir":"data",
+        "save_dir": "data",
+        "traj_index": {
+            "start": 0,
+            "end": 10,
+            "step": 1
+        },
+        "snap_index": {
+            "start": 0,
+            "end": 200000,
+            "step": 100
+        },        
+        "r_cut": 7.5,
+        "force_reload": false
+    }
+}
