@@ -1,0 +1,26 @@
+{
+    "model_params": {
+        "r_cut": 7.5,
+        "num_blocks": 4,
+        "embed_feats": 128,
+        "hidden_feats": 128,
+        "use_layer_norm": "True"
+    },
+    "test_params": {
+        "save_dir": "runs/trial_run_1",
+        "test_mode": "md",
+        "test_name": "hessian",
+        "ff_model": "gnn",
+        "dump_filename": "dump.lj",
+        "log_filename": "log.txt",
+        "device": "cpu",
+        "timestep": 0.01078,
+        "temperature" : 95,
+        "temperature_end" : 95,
+        "nvt_chain" : 10,
+        "thermo_freq" : 5,
+        "total_timestep" : 50000,
+        "log_freq" : 50,
+        "dump_freq" : 10
+    }
+}
