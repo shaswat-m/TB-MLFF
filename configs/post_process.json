@@ -1,0 +1,13 @@
+{
+    "post_params": {
+        "dump_filename": "dumpfiles/dump.ljtest_MD_GAMD_95",
+        "gnn_md_dir": "runs/trial_run_1",
+        "lj_md": "lammps",
+        "save_dir": "runs/results_trial_run_1",
+        "func": "rdf_and_sq",
+        "timestep": 0.01078,
+        "total_timestep" : 50000,
+        "dump_freq" : 10,
+        "freq" : 50
+    }
+}
