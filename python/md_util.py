@@ -2997,7 +2997,7 @@ class XPCS_Suite():
             self.beta = self.g2[:, 0] - 1.0
             self.g2_exp_fit = np.dot(np.diag(1.0 / (self.beta)), (self.g2 - 1.0))
             self.g2_exp_fit_mean = np.mean(self.g2_exp_fit, axis=0)
-            self.g2_exp_fit_mean = self.g2_exp_fit_mean - self.g2_exp_fit_mean.min()
+            self.g2_exp_fit_mean = self.g2_exp_fit_mean - self.g2_exp_fit_mean.min() + 1e-6
             self.g2_mean = np.mean(self.g2, axis=0)
         if self.ISF:
             self.items = self.s_time_ISF.shape[0]
