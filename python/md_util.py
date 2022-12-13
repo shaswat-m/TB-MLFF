@@ -3044,9 +3044,10 @@ class XPCS_Suite():
 
     def get_gamma(self):
         self.times = np.linspace(0,self.timestep*(self.frames-1),self.frames)
-        popt, _ = curve_fit(objective_lin,self.times[3:19], np.log(self.g2_exp_fit_mean[3:19]))
-        if self.q_val == 6.28:
-            print(self.times[3:19], np.log(self.g2_exp_fit_mean[3:19]))
+        if self.atoms_add < self.N_atoms // 10:
+            popt, _ = curve_fit(objective_lin,self.times[3:19], np.log(self.g2_exp_fit_mean[3:19]))
+        else:
+            popt, _ = curve_fit(objective_lin, self.times[2:6], np.log(self.g2_exp_fit_mean[2:6]))
         a, b  = popt
         self.gamma_ns = -0.5*a*1e-9/self.nondim_t
 
