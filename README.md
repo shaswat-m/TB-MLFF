@@ -6,7 +6,7 @@ This library comprises the end-to-end workflow of developing a machine-learned f
 We would appreciate if you could cite the following works depending on what components of this library you use:
 
 Please cite the following paper for using the testbed library to benchmark your force-field:
-* arXiv/journal citation to be added
+* Evaluating the Transferability of Machine-Learned Force Fields for Material Property Modeling [https://arxiv.org/abs/2301.03729]
 
 If you used the Graph Neural Network to train the model the please cite:
 * Z. Li et al., J. Chem. Phys. (2022), 156, 144103 [https://doi.org/10.1063/5.0083060]
