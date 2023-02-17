@@ -1155,6 +1155,10 @@ def g_r_verlet(pos, bins, rc, h, a = None, nnlist=None, bin_range = None):
             hist_normalized : float, dimension (bins,)
                 Normalized histograms to be equivalent to the g(r)
     '''
+    if rc>h.max()/2:
+        newpos,newh = config_repeater(pos,h)
+        pos = newpos.copy()
+        h = newh.copy()
     if nnlist != None:
         index = nnlist
         nn = np.array([len(l) for l in index], dtype=int)
