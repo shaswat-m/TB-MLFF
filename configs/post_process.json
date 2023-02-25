@@ -8,6 +8,8 @@
         "timestep": 0.01078,
         "total_timestep" : 50000,
         "dump_freq" : 10,
-        "freq" : 50
+        "freq" : 50,
+        "lj_d_in_A" : 3.405,
+        "atoms_add" : 45
     }
 }
