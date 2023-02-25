@@ -27,7 +27,8 @@ from post_util import *
 class post_analysis():
     def __init__(self, timestep = 0.01078, dump_filename = 'dump_name', func = 'MSD',
                  gnn_md_dir = 'GNN_dir', save_dir = 'save_data', dump_freq = 100,
-                 total_timestep = 50000, freq = 100, lj_md = 'lammps'):
+                 total_timestep = 50000, freq = 100, lj_md = 'lammps', atoms_add = 45,
+                 lj_d = 3.405):
         self.timestep      = timestep
         self.dump_filename = dump_filename
         self.func          = func
@@ -44,7 +45,8 @@ class post_analysis():
         self.freq          = freq
         self.ins           = self.steps // self.freq
         self.t             = np.linspace(0,self.timestep*self.dump_freq*self.freq*(self.ins-1),self.ins)
-        self.nd            = 3.405
+        self.nd            = lj_d
+        self.atoms_add     = atoms_add
 
     def init_parallel(self):
         if self.func == 'XPCS':
@@ -190,20 +192,19 @@ class post_analysis():
         plt.plot(self.t, msd_gnn, 'b', label='GNN')
         plt.plot(self.t, objective(self.t, slope_gnn), 'b--', label=r'D$_MD$=%.2f $\mu$m$^2$/s' % (slope_gnn * conv_un / 6))
         plt.legend()
-        plt.xlabel(r'Time (fs)')
+        plt.xlabel(r'Time (ps)')
         plt.ylabel(r'MSD (LJ)')
         plt.savefig(self.save_dir+'/MSD_plots.png')
         plt.clf()
 
     def cal_XPCS(self):
-        atoms_add = 45
-        tester = XPCS_Suite(filename=self.dump_filename, atoms_add=atoms_add)
+        tester = XPCS_Suite(filename=self.dump_filename, atoms_add=self.atoms_add, total_steps=self.steps)
         tester.ext = 'GNN'
-        tester.timestep = 10
-        tester.nondim_t = 10.78e-15
+        tester.timestep = self.dump_freq
+        tester.nondim_t = self.timestep * 1e-12
         tester.nondim_d = self.nd * 1e-10
         tester.dir_name = self.save_dir + '/'
-        h_pos = np.zeros((atoms_add + 2, 3, self.steps))
+        h_pos = np.zeros((self.atoms_add + 2, 3, self.steps))
         for i in range(1, self.steps + 1):
             filename = self.gnn_md_dir + '/data.lj.%d' % (self.dump_freq * i)
             p, ho = load_custom(filename, 2, 4, 11)
@@ -212,7 +213,7 @@ class post_analysis():
             s = s - 0.5
             s = s - np.round(s)
             p = bl * (s + 0.5)
-            temp_pos = p[:atoms_add, :]
+            temp_pos = p[:self.atoms_add, :]
             h_pos[:2, :, i - 1] = ho.T
             h_pos[2:, :, i - 1] = temp_pos
         tester.box_length = bl / self.nd
@@ -237,16 +238,16 @@ class post_analysis():
         np.savetxt(self.save_dir+'/Gamma_GNN.txt', store)
         print(r'The diffusivity is %.2f um.m/s' % diff)
 
-        testing = XPCS_Suite(filename=self.dump_filename, atoms_add=atoms_add)
+        testing = XPCS_Suite(filename=self.dump_filename, atoms_add=self.atoms_add, total_steps=self.steps)
         testing.ext = 'MD'
         testing.nondim_d = self.nd * 1e-10
         testing.dir_name = self.save_dir +'/'
+        testing.timestep = self.dump_freq
+        testing.nondim_t = self.timestep * 1e-12
         if self.lj_md == 'lammps':
             testing.load_and_process_trajectory()
         else:
-            testing.timestep = 10
-            testing.nondim_t = 10.78e-15
-            h_pos = np.zeros((atoms_add + 2, 3, self.steps))
+            h_pos = np.zeros((self.atoms_add + 2, 3, self.steps))
             for i in range(1, self.steps + 1):
                 filename = self.md_dir + '/data.lj.%d' % (self.dump_freq * i)
                 p, ho = load_custom(filename, 2, 4, 11)
@@ -255,7 +256,7 @@ class post_analysis():
                 s = s - 0.5
                 s = s - np.round(s)
                 p = bl * (s + 0.5)
-                temp_pos = p[:atoms_add, :]
+                temp_pos = p[:self.atoms_add, :]
                 h_pos[:2, :, i - 1] = ho.T
                 h_pos[2:, :, i - 1] = temp_pos
             testing.box_length = bl / self.nd
@@ -281,13 +282,13 @@ class post_analysis():
         print(r'The diffusivity is %.2f um.m/s' % diff)
 
     def cal_XSVS(self):
-        tester = XPCS_Suite(filename=self.dump_filename, atoms_add=atoms_add)
+        tester = XPCS_Suite(filename=self.dump_filename, atoms_add=self.atoms_add, total_steps=self.steps)
         tester.ext = 'GNN'
-        tester.timestep = 10
-        tester.nondim_t = 10.78e-15
+        tester.timestep = self.dump_freq
+        tester.nondim_t = self.timestep * 1e-12
         tester.nondim_d = self.nd * 1e-10
         tester.dir_name = self.save_dir + '/'
-        h_pos = np.zeros((atoms_add + 2, 3, self.steps))
+        h_pos = np.zeros((self.atoms_add + 2, 3, self.steps))
         for i in range(1, self.steps + 1):
             filename = self.gnn_md_dir + '/data.lj.%d' % (self.dump_freq * i)
             p, ho = load_custom(filename, 2, 4, 11)
@@ -296,7 +297,7 @@ class post_analysis():
             s = s - 0.5
             s = s - np.round(s)
             p = bl * (s + 0.5)
-            temp_pos = p[:atoms_add, :]
+            temp_pos = p[:self.atoms_add, :]
             h_pos[:2, :, i - 1] = ho.T
             h_pos[2:, :, i - 1] = temp_pos
         tester.box_length = bl / self.nd
@@ -304,16 +305,16 @@ class post_analysis():
         tester.h = ho / self.nd
         tester.hin = ho / self.nd
         tester.pos_input = h_pos.copy() / self.nd
-        testing = XPCS_Suite(filename=self.dump_filename, atoms_add=45)
+        testing = XPCS_Suite(filename=self.dump_filename, atoms_add=self.atoms_add, total_steps=self.steps)
         testing.ext = 'MD'
         testing.nondim_d = self.nd * 1e-10
         testing.dir_name = self.save_dir +'/'
+        testing.timestep = self.dump_freq
+        testing.nondim_t = self.timestep * 1e-12
         if self.lj_md == 'lammps':
             testing.load_and_process_trajectory()
         else:
-            testing.timestep = 10
-            testing.nondim_t = 10.78e-15
-            h_pos = np.zeros((atoms_add + 2, 3, self.steps))
+            h_pos = np.zeros((self.atoms_add + 2, 3, self.steps))
             for i in range(1, self.steps + 1):
                 filename = self.md_dir + '/data.lj.%d' % (self.dump_freq * i)
                 p, ho = load_custom(filename, 2, 4, 11)
@@ -322,7 +323,7 @@ class post_analysis():
                 s = s - 0.5
                 s = s - np.round(s)
                 p = bl * (s + 0.5)
-                temp_pos = p[:atoms_add, :]
+                temp_pos = p[:self.atoms_add, :]
                 h_pos[:2, :, i - 1] = ho.T
                 h_pos[2:, :, i - 1] = temp_pos
             testing.box_length = bl / self.nd
@@ -409,7 +410,8 @@ def main(inputs):
                        func=post_params['func'], gnn_md_dir=post_params['gnn_md_dir'],
                        save_dir=post_params['save_dir'], total_timestep=post_params['total_timestep'],
                        dump_freq=post_params['dump_freq'], freq=post_params['freq'],
-                       lj_md=post_params['lj_md'])
+                       lj_md=post_params['lj_md'],atoms_add=post_params['atoms_add'],
+                       lj_d=post_params['lj_d_in_A'])
     if PA.func != 'XPCS':
         PA.load_LAMMPS()
     if PA.func == 'rdf_and_sq':
