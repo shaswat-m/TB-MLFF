@@ -138,7 +138,7 @@ class TestMD(Test):
                                 os.path.join(self.save_dir,self.test_params['dump_filename'])))
         os.system("cp %s %s ;"%(os.path.join(self.test_params['save_dir'],'best.ckpt'),
                                 os.path.join(self.save_dir,'best.ckpt')))
-        self.dump_filename = os.path.join(self.save_dir,
+        self.dump_filename = os.path.join(self.train_params['save_dir'],
                                           self.test_params['dump_filename'])
         self.log_filename  = os.path.join(self.save_dir,
                                           self.test_params['log_filename'])
