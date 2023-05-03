@@ -29,7 +29,7 @@ import json
 import os
 
 import numpy as np
-
+import matplotlib.pyplot as plt
 import openmm as mm
 from openmm import app, unit
 import torch
@@ -661,10 +661,16 @@ class TestMS(Test):
                     print('update = {}'.format(count))
 
                 count += 1
-
+        err = abs(np.concatenate(forces_pred).reshape(-1) - np.concatenate(forces_refs).reshape(-1))
+        err2 = (np.concatenate(forces_pred).reshape(-1) - np.concatenate(forces_refs).reshape(-1))
+        err3 = (np.concatenate(forces_refs).reshape(-1) - (np.concatenate(forces_refs).reshape(-1)).mean())
+        sse = (err2 ** 2).sum()
+        sst = (err3 ** 2).sum()
+        r2 = 1 - sse / sst
         plt.figure(figsize=[4, 4], dpi=300, constrained_layout=True)
         plt.xlabel(r'$\mathbf{F}_{pred} (eV/\AA)$', fontsize=12)
         plt.ylabel(r'$\mathbf{F}_{ref} (eV/\AA)$', fontsize=12)
+        plt.title(r'$R^2 =$ %.6f' % r2, fontsize=12)
         plt.scatter(np.concatenate(forces_pred).reshape(-1), np.concatenate(forces_refs).reshape(-1), color='k', s=3)
         plt.plot(np.linspace(-5, 5), np.linspace(-5, 5), '--r')
         plt.xlim([-0.5, 0.5])
