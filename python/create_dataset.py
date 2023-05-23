@@ -137,7 +137,7 @@ class RunMD:
     
         # get random number for initial velocity
         # TODO: Maximum value should be changable
-        np.random.seed(self.idx_proc)
+        #np.random.seed(self.idx_proc)
         self.random = np.random.randint(100000)
 
     def print_setup(self):
@@ -261,5 +261,5 @@ if __name__ == '__main__':
     # parse arguments
     args = parser.parse_args()
 
-    for i in range(args.start_idx_traj, args.num_traj):
+    for i in range(args.num_traj):
         main(args, i)
