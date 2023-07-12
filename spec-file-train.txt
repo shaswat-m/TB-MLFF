@@ -182,4 +182,3 @@ https://conda.anaconda.org/conda-forge/noarch/wandb-0.12.17-pyhd8ed1ab_0.tar.bz2
 https://conda.anaconda.org/conda-forge/noarch/google-auth-oauthlib-0.4.1-py_2.tar.bz2
 https://repo.anaconda.com/pkgs/main/noarch/tensorboard-2.6.0-py_0.conda
 https://conda.anaconda.org/conda-forge/noarch/pytorch-lightning-1.6.3-pyhd8ed1ab_0.tar.bz2
-https://anaconda.org/conda-forge/pyscal/2.10.18/download/linux-64/pyscal-2.10.18-py311h59ea3da_2.tar.bz2
