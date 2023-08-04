@@ -2442,13 +2442,20 @@ def form_factor_analytical(q_val, atom_type="Ar"):
         a = np.array([7.4845,6.7723,0.6539,1.6442])
         b = np.array([0.9072,14.8407,43.8983,33.3929])
         c = 1.4445
+    elif atom_type == "C":
+        a = np.array([2.31,1.02,1.5886,0.865])
+        b = np.array([20.8439,10.2075,0.5687,51.6512])
+        c = 0.2156
+    elif atom_type == "H":
+        a = np.array([0.489918,0.262003,0.196767,0.049879])
+        b = np.array([20.6593,7.74039,49.5519,2.20159])
+        c = 0.001305
     else:
         a = np.array([0,0,0,0])
         b = np.array([0,0,0,0])
         c = 0
-    f_val = c #+ np.sum(a*np.exp(-b*(q_val/(4*np.pi))**2))
-    for i in range(4):
-        f_val += a[i]*np.exp(-b[i]*(q_val/(4*np.pi)**2))
+    f_val = c + np.sum(a*np.exp(-b*(q_val/(4*np.pi))**2))
+
     return f_val
 
 def optical_contrast(s):
