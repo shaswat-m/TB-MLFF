@@ -2454,7 +2454,9 @@ def form_factor_analytical(q_val, atom_type="Ar"):
         a = np.array([0,0,0,0])
         b = np.array([0,0,0,0])
         c = 0
-    f_val = c + np.sum(a*np.exp(-b*(q_val/(4*np.pi))**2))
+    f_val = c 
+    for i in range(4):
+        f_val += a[i]*np.exp(-b[i]*(q_val/(4*np.pi))**2)
 
     return f_val
 
