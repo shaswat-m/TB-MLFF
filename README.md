@@ -7,13 +7,34 @@ We would appreciate if you could cite the following works depending on what comp
 
 Please cite the following paper for using the testbed library to benchmark your force-field:
 * Evaluating the Transferability of Machine-Learned Force Fields for Material Property Modeling [https://doi.org/10.1016/j.cpc.2023.108723]
-
+```
+@article{mohanty2023evaluating,
+  title={Evaluating the transferability of machine-learned force fields for material property modeling},
+  author={Mohanty, Shaswat and Yoo, SangHyuk and Kang, Keonwook and Cai, Wei},
+  journal={Computer Physics Communications},
+  volume={288},
+  pages={108723},
+  year={2023},
+  publisher={Elsevier}
+}
+```
 If you used the Graph Neural Network to train the model the please cite:
 * Z. Li et al., J. Chem. Phys. (2022), 156, 144103 [https://doi.org/10.1063/5.0083060]
 
 If you use the XPCS analysis then please cite:
 * Computational Approaches to Model X-ray Photon Correlation Spectroscopy from Molecular Dynamics [https://doi.org/10.1088/1361-651X/ac860c]
-
+```
+@article{mohanty2022computational,
+  title={Computational approaches to model X-ray photon correlation spectroscopy from molecular dynamics},
+  author={Mohanty, Shaswat and Cooper, Christopher B and Wang, Hui and Liang, Mengning and Cai, Wei},
+  journal={Modelling and Simulation in Materials Science and Engineering},
+  volume={30},
+  number={7},
+  pages={075004},
+  year={2022},
+  publisher={IOP Publishing}
+}
+```
 If you used the liquid fraction analysis please cite:
 * pyscal: A python module for structural analysis of atomic environments [https://doi.org/10.21105/joss.01824]
 
