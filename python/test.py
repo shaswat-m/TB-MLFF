@@ -79,7 +79,7 @@ class Test:
             = neighborlist.neighbor_list('ijdD', atoms, self.r_cut)
 
         # build graph
-        graph = dgl.graph((src_ids, dst_ids), idtype=torch.int32)
+        graph = dgl.graph((src_ids, dst_ids), idtype=torch.long32)
 
         # save distance and unit vectors as edge data
         graph.edata['distance'] \
@@ -145,7 +145,10 @@ class TestMD(Test):
     
     def run_lj(self):
         # read initial configurations : lammps dump format
-        self.atoms = io.read(self.dump_filename, 0, 'lammps-dump-text')
+        if 'dump' in self.dump_filename:
+            self.atoms = io.read(self.dump_filename, 0, 'lammps-dump-text')
+        elif 'data' in self.dump_filename:
+            self.atoms = io.read(self.dump_filename, 0, 'lammps-data',style='atomic')
         num_atoms = len(self.atoms)
         pos  = self.atoms.get_positions()
         cell = self.atoms.get_cell()[:]
@@ -262,7 +265,10 @@ class TestMD(Test):
         
     def run_gnn(self):
         # read initial configurations : lammps dump format
-        self.atoms = io.read(self.dump_filename, 0, 'lammps-dump-text')
+        if 'dump' in self.dump_filename:
+            self.atoms = io.read(self.dump_filename, 0, 'lammps-dump-text')
+        elif 'data' in self.dump_filename:
+            self.atoms = io.read(self.dump_filename, 0, 'lammps-data',style='atomic')
         num_atoms = len(self.atoms)
         pos  = self.atoms.get_positions()
         cell = self.atoms.get_cell()[:]
@@ -505,7 +511,10 @@ class TestMS(Test):
         self.k_mat_gnn = np.zeros((k_dof, k_dof))
 
         # read initial configuration : lammps dump format
-        self.atoms = io.read(self.dump_filename, 0, 'lammps-dump-text')
+        if 'dump' in self.dump_filename:
+            self.atoms = io.read(self.dump_filename, 0, 'lammps-dump-text')
+        elif 'data' in self.dump_filename:
+            self.atoms = io.read(self.dump_filename, 0, 'lammps-data',style='atomic')
         pos = self.atoms.get_positions()
 
         # initialize gnn model
@@ -573,7 +582,10 @@ class TestMS(Test):
         '''
 
         # read initial configuration : lammps dump format
-        self.atoms = io.read(self.dump_filename, 0, 'lammps-dump-text')
+        if 'dump' in self.dump_filename:
+            self.atoms = io.read(self.dump_filename, 0, 'lammps-dump-text')
+        elif 'data' in self.dump_filename:
+            self.atoms = io.read(self.dump_filename, 0, 'lammps-data',style='atomic')
         num_atoms = len(self.atoms)
         pos = self.atoms.get_positions()
         

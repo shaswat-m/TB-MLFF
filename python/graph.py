@@ -153,7 +153,7 @@ class MDDataset(DGLDataset):
             = neighborlist.neighbor_list('ijdD', atoms, self.r_cut)
 
         # build graph
-        graph = dgl.graph((src_ids, dst_ids), idtype=torch.int32)
+        graph = dgl.graph((src_ids, dst_ids), idtype=torch.long32)
         
         # get forces and save themas node data
         forces = atoms.get_forces()
