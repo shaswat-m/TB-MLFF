@@ -123,7 +123,9 @@ The MD trajectory can be post-processed in a number of ways by making changes  i
 * Structure factor and radial distribution function (`"func": "rdf_and_sq"`)
 * Computational XPCS (`"func": "XPCS"`) 
 * Computational XSVS (`"func": "XSVS"`) 
-* Solid-liquid interface analysis (`"func": "interface"`). 
+* Solid-liquid interface analysis (`"func": "interface"`)
+* Phonon density of states (`"func": "phdos"`)
+* Phonon dispersion relation (`"func": "phdisp"`)
 * Incase, you're not using a single dumpfile from lammps but an openMM trajectory by using the LJ interatomic potentional then switch `"lj_md":"lammps"` to `"lj_md":"ase"`.
 ```commandline
 python3 $workdir/python/post_process.py --input-file $workdir/configs/post_process.json ;
