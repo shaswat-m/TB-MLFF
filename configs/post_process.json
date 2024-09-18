@@ -10,6 +10,8 @@
         "dump_freq" : 10,
         "freq" : 50,
         "lj_d_in_A" : 3.405,
-        "atoms_add" : 45
+        "atoms_add" : 45,
+        "element" : "Ar",
+        "ref_file" : "data.pt"
     }
 }
