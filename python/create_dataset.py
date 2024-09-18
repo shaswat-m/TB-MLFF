@@ -23,12 +23,12 @@ import random
 
 import numpy as np
 
-from ase import units
+from ase import units, Atom
 from lammps import lammps
 
 # initial parameters for lammps
 # LJ Argon system - 
-MASS = 39.9 # amu
+#MASS = 39.9 # amu
 EPSILON = 0.238 # kcal/mol
 SIGMA = 3.4 # Angstrom
 CUTOFF = 2.5 # LJ unit
@@ -81,6 +81,31 @@ parser.add_argument('--num_vacancy',
                     type=int,
                     help='Create vacancies',
                     default=0)
+parser.add_argument('--potential_file',
+                    required=False,
+                    type=str,
+                    help='Potential file to use',
+                    default='lj')
+parser.add_argument('--material',
+                    required=False,
+                    type=str,
+                    help='material',
+                    default='Ar')
+parser.add_argument('--time_step',
+                    required=False,
+                    type=float,
+                    help='time step (ps)',
+                    default=0.01078)
+parser.add_argument('--run_step',
+                    required=False,
+                    type=int,
+                    help='run step ',
+                    default=200000)
+parser.add_argument('--dump_freq',
+                    required=False,
+                    type=int,
+                    help='dump frequency ',
+                    default=100)
 
 # define class
 class RunMD:
@@ -121,10 +146,11 @@ class RunMD:
         self.num_vacancy = args.num_vacancy
 
         # setup MD simulation parameters
-        self.dump_freq = 100
+        self.dump_freq = args.dump_freq
         self.log_freq = 200
-        self.time_step = 0.01078  # ps
+        self.time_step = args.time_step  # ps
         self.num_step = 200000
+        self.run_step = args.run_step
         self.nvt_thermo_freq = 0.02
         self.npt_thermo_freq = 0.02
         self.npt_baro_freq = 0.2
@@ -199,13 +225,19 @@ class RunMD:
                            dist gaussian mom yes rot yes')
 
         # define force parameters
-        self.lmp.command(f'pair_style lj/cut {self.cutoff}')
-        self.lmp.command(f'pair_coeff 1 1 {self.epsilon} {self.sigma} {self.cutoff}')
+        if args.potential_file == 'lj':
+            self.lmp.command(f'pair_style lj/cut {self.cutoff}')
+            self.lmp.command(f'pair_coeff 1 1 {self.epsilon} {self.sigma} {self.cutoff}')
 
-        # define neighbor build scheme
-        self.lmp.command(f'neighbor {self.skin} bin')
-        self.lmp.command(f'neigh_modify check yes')
-
+            # define neighbor build scheme
+            self.lmp.command(f'neighbor {self.skin} bin')
+            self.lmp.command(f'neigh_modify check yes')
+        else:
+            if '.eam' in args.potential_file:
+                self.lmp.command(f'pair_style eam')
+                self.lmp.command(f'pair_coeff * * {args.potential_file}')
+            else:
+                raise NotImplementedError
         # run NPT ensemble
         self.lmp.command(f'thermo {self.log_freq}')
         self.lmp.command(f'timestep {self.time_step}')
@@ -232,7 +264,7 @@ class RunMD:
         self.lmp.command(f'fix 1 all nvt temp {self.temp_init} {self.temp_final} {self.nvt_thermo_freq} \
                            tchain {self.num_chains} tloop {self.num_mtk}')
         self.lmp.command(f'reset_timestep 0')
-        self.lmp.command(f'run {self.num_step}')
+        self.lmp.command(f'run {self.run_step}')
     
     def quit(self):
         self.lmp.close()
@@ -243,7 +275,7 @@ def main(args, i):
     pid = os.getpid()
     args.pid = pid
     args.idx_traj = i
-
+    
     # create MD instances
     md = RunMD()
 
@@ -260,6 +292,7 @@ def main(args, i):
 if __name__ == '__main__':
     # parse arguments
     args = parser.parse_args()
-
-    for i in range(args.num_traj):
+    a1 = Atom(args.material)
+    MASS = a1.mass
+    for i in range(0, args.num_traj):
         main(args, i)
