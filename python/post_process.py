@@ -28,7 +28,7 @@ class post_analysis():
     def __init__(self, timestep = 0.01078, dump_filename = 'dump_name', func = 'MSD',
                  gnn_md_dir = 'GNN_dir', save_dir = 'save_data', dump_freq = 100,
                  total_timestep = 50000, freq = 100, lj_md = 'lammps', atoms_add = 45,
-                 lj_d = 3.405):
+                 lj_d = 3.405, element = 'Ar', ref_file = 'data.pt'):
         self.timestep      = timestep
         self.dump_filename = dump_filename
         self.func          = func
@@ -47,6 +47,67 @@ class post_analysis():
         self.t             = np.linspace(0,self.timestep*self.dump_freq*self.freq*(self.ins-1),self.ins)
         self.nd            = lj_d
         self.atoms_add     = atoms_add
+        self.element       = element
+        self.system_dict = {'Ar':'fcc','Cu':'bcc','Ni':'fcc','Pt':'fcc','Si':'diamond'}
+        self.system = self.system_dict[element]
+        self.ref_file = ref_file
+        
+
+    def setup_phd(self):
+        self.hess_data = np.load(self.save_dir + '/hessian.npz')
+        self.K_lmp = self.hess_data['hess_lammps']
+        self.K_gnn = self.hess_data['hess_gnn']
+        self.k_gnn = 0.5*(self.K_gnn + self.K_gnn.T)
+        if self.element == 'Ar':
+            self.m = 39.9*1.67377e-27
+            self.d = 3.405e-10
+            self.e = 0.0103207*1.602e-19
+        elif self.element == 'Si':
+            self.m = 28.085*1.67377e-27
+            self.d = 1e-10
+            self.e = 1.602e-19
+        elif self.element == 'Pt':
+            self.m = 195.08*1.67377e-27
+            self.d = 1e-10
+            self.e = 1.602e-19
+        elif self.element == 'Ni':
+            self.m = 58.693*1.67377e-27
+            self.d = 1e-10
+            self.e = 1.602e-19
+        else:
+            raise ValueError('Invalid element. Send note to authors.')
+        self.conv = (self.e/self.d**2/self.m)**0.5
+
+    def calc_phonon_dispersion_from_hessian(self, K_lmp):
+        if self.system == 'fcc':
+            natoms_cell = 1
+            natoms_unit_cell = 4
+            nnc = natoms_unit_cell//natoms_cell
+            self.labels = [r'$\Gamma$',r'$X$',r'$W$',r'$K$',r'$\Gamma$',r'$L$']
+        elif self.system == 'bcc':
+            natoms_cell = 1
+            natoms_unit_cell = 2
+            nnc = natoms_unit_cell//natoms_cell
+            self.labels = [r'$\Gamma$',r'$H$',r'$P$',r'$\Gamma$',r'$N$']
+        elif self.system == 'sc':
+            natoms_cell = 1
+            natoms_unit_cell = 1
+            nnc = natoms_unit_cell//natoms_cell
+            self.labels = [r'$\Gamma$',r'$X$',r'$M$',r'$\Gamma$',r'$R$']
+        elif self.system == 'diamond':
+            natoms_cell = 2
+            natoms_unit_cell = 8
+            nnc = natoms_unit_cell//natoms_cell
+            self.labels = [r'$\Gamma$',r'$X$',r'$W$',r'$K$',r'$\Gamma$',r'$L$']
+
+        k_dof = K_lmp.shape[0]
+        hess = K_lmp*self.conv**2
+        n_unit_cells = int(np.rint((k_dof/3/natoms_unit_cell)**(1/3)))	
+        R = map_to_ref(self.init_pos, self.h, natoms_cell)
+        
+        fractional_hess = get_fractional_hess(hess, natoms_cell, nnc, n_unit_cells)
+        self.kpoints, self.lines = get_kpoints(self.h, n_unit_cells, self.system, points = self.labels)
+        return fourier_summation(fractional_hess, self.kpoints, R, natoms_cell)
 
     def init_parallel(self):
         if self.func == 'XPCS':
@@ -400,6 +461,49 @@ class post_analysis():
         plt.savefig(self.save_dir+'/Hist_plots2.png')
         plt.clf()
 
+    def cal_phdisp(self):
+        self.setup_phd()
+        self.init_pos, self.h = read_init(self.save_dir+'/'+self.ref_file)
+        self.u_gnn = self.calc_phonon_dispersion_from_hessian(self.K_gnn)
+        self.u_lmp = self.calc_phonon_dispersion_from_hessian(self.K_lmp)
+        self.omegas_gnn = np.sqrt(self.u_gnn)/2/np.pi/1e12
+        self.omegas_lmp = np.sqrt(self.u_lmp)/2/np.pi/1e12
+        np.savez(self.save_dir+'/phdisp.npz', omegas_gnn=self.omegas_gnn, omegas_lmp=self.omegas_lmp)
+        for k, omega in enumerate(self.omegas_gnn):
+            if k == 0:
+                plt.plot(omega, 'r', label='GNN')
+            else:
+                plt.plot(omega, 'r')
+        for k, omega in enumerate(self.omegas_lmp):
+            if k == 0:
+                plt.plot(omega, 'b', label='LAMMPS')
+            else:
+                plt.plot(omega, 'b')
+        for line in self.lines[1:-1]:
+		    plt.vlines(line,self.omegas_lmp.min(),self.omegas_lmp.max(),colors='k',linestyles='dashed')
+	    plt.xticks(self.lines,self.labels)
+        plt.legend()
+        plt.ylabel(r'Frequency (THz)')
+        plt.savefig(self.save_dir+'/phdisp.png')
+        plt.clf()
+
+
+    def cal_phdos(self):
+        self.setup_phd()
+        eval_gnn, _ = np.linalg.eig(self.K_gnn)
+        eval_lmp, _ = np.linalg.eig(self.K_lmp)
+
+        self.eigfreq_gnn = eval_gnn**0.5 * self.conv / 2/np.pi
+        self.eigfreq_lmp = eval_lmp**0.5 * self.conv / 2/np.pi
+        np.savez(self.save_dir+'/phdos_THz.npz', eigfreq_gnn=self.eigfreq_gnn*1e-12, eigfreq_lmp=self.eigfreq_lmp*1e-12)
+        plt.hist(self.eigfreq_gnn*1e-12, 100, density=True, alpha=0.5, label='GNN')
+        plt.hist(self.eigfreq_lmp*1e-12, 100, density=True, alpha=0.5, label='LAMMPS')
+        plt.legend()
+        plt.ylabel('PDF')
+        plt.xlabel(r'Frequency (THz)')
+        plt.savefig(self.save_dir+'/phdos_THz.png')
+        plt.clf()
+        
 
 def main(inputs):
     post_params = inputs['post_params']
@@ -411,9 +515,10 @@ def main(inputs):
                        save_dir=post_params['save_dir'], total_timestep=post_params['total_timestep'],
                        dump_freq=post_params['dump_freq'], freq=post_params['freq'],
                        lj_md=post_params['lj_md'],atoms_add=post_params['atoms_add'],
-                       lj_d=post_params['lj_d_in_A'])
+                       lj_d=post_params['lj_d_in_A'], element=post_params['element'], ref_file=post_params['ref_file'])
     if PA.func != 'XPCS':
-        PA.load_LAMMPS()
+        if 'ph' not in PA.func:
+            PA.load_LAMMPS()
     if PA.func == 'rdf_and_sq':
         PA.init_parallel()
         PA.cal_rdf_and_sq()
@@ -433,6 +538,10 @@ def main(inputs):
     elif PA.func == 'NN_dist':
         PA.load_GNN()
         PA.cal_NN_dist()
+    elif PA.func == 'phdisp':
+        PA.cal_phdisp()
+    elif PA.func == 'phdos':
+        PA.cal_phdos()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

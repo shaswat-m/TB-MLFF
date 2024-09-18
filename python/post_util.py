@@ -2,6 +2,8 @@ import sys, os
 #sys.path.append(os.path.realpath(os.environ['DPNgit']+'/python'))
 from md_util import *
 import re
+import ase
+from ase.io import read, write
 
 def make_lj(read_file = 'dump.ljnd', save_file = 'dump.lj'):
     '''Convert LJ units to metal units (Liquid Ar)
@@ -216,3 +218,75 @@ def unwrap_trajectories(u_pos, pos, h):
         u_pos[:, :, i + 1] = pos_new + off_vec
     return u_pos.copy()
 
+def read_init(filename):
+    if 'data' in filename:
+        atoms = read(filename, 0, format='lammps-data',style='atomic')
+    else:
+        atoms = read(filename, 0, format='lammps-dump-text')
+    init_pos = atoms.get_positions()
+    h = np.zeros((3,2))
+    h[:,1] = np.diag(atoms.get_cell())
+    return init_pos, h
+
+def get_kpoints(h, n_unit_cells, system, delta_x=0.0005, points=[r'$\Gamma$',r'$X$',r'$W$',r'$K$',r'$\Gamma$',r'$L$']):
+    # Define symmetry points for different systems
+    if system == 'fcc':
+        sym_points = {'$\Gamma$':[0,0,0], '$X$':[0.5,0,0], '$W$':[0.5,0.25,0], '$K$':[0.375,0.375,0], '$L$':[0.25,0.25,0.25]}
+    elif system == 'bcc':
+        sym_points = {'$\Gamma$':[0,0,0], '$H$':[0,0,0.5], '$P$':[0.25,0.25,0.25], '$N$':[0,0.25,0.25]}
+    elif system == 'sc':
+        sym_points = {'$\Gamma$':[0,0,0], '$X$':[0,0.25,0], '$M$':[0.25,0.25,0], '$R$':[0.25,0.25,0.25]}
+    elif system == 'diamond':
+        sym_points = {'$\Gamma$':[0,0,0], '$X$':[0.5,0,0], '$W$':[0.5,0.25,0], '$K$':[0.375,0.375,0], '$L$':[0.25,0.25,0.25]}
+
+    # Extract symmetry points and calculate input k-points
+    kpointsIn = np.array([sym_points[point] for point in points])
+    nKin = kpointsIn.shape[0]
+    
+    # Calculate distances between successive points
+    distances = np.linalg.norm(np.diff(kpointsIn, axis=0), axis=1)
+    
+    # Determine number of interpolating points between each pair of symmetry points
+    nInterp_per_segment = (distances / delta_x).astype(int)
+    
+    kpoints = [kpointsIn[0]]
+    for i in range(nKin - 1):
+        # Generate interpolated points between current and next symmetry point
+        # interp_x = np.linspace(0, 1, nInterp_per_segment[i], endpoint=False)
+        # segment_points = (1 - interp_x[:, None]) * kpointsIn[i] + interp_x[:, None] * kpointsIn[i + 1]
+        segment_points = np.linspace(kpointsIn[i], kpointsIn[i + 1], nInterp_per_segment[i], endpoint=False)
+        kpoints.extend(segment_points)
+    kpoints.append(kpointsIn[-1])  # Add the final point
+
+    # Convert k-points to reciprocal space
+    hin = np.mean(h[:, 1] - h[:, 0])
+    kpoints = np.array(kpoints) * 2 * np.pi * n_unit_cells * 2 / hin
+
+    # Calculate the position for the symmetry lines
+    nK = len(kpoints)
+    lines = np.cumsum([0] + nInterp_per_segment.tolist())
+
+    return np.array(kpoints), lines
+
+def fourier_summation(fractional_hess, kpoints, R, natoms_cell):
+    dd = np.einsum('ij,mnj',np.exp(1j*np.dot(kpoints,R.T)),fractional_hess)
+    u,v = np.linalg.eig(dd[:,:3*natoms_cell,:3*natoms_cell])
+    return np.sort(u,axis=1)
+
+def map_to_ref(init_pos, h, natoms_cell = 1, ref_pos = None):
+    if ref_pos is None:
+        ref_pos = init_pos[0,:]
+    
+    box = np.diag(h[:,1]-h[:,0])
+    hinv = np.linalg.inv(box)
+    s = np.dot(init_pos-ref_pos,hinv)
+    init_pos = (np.dot(s-np.round(s),box))
+    Rj = np.transpose(init_pos.reshape(-1,natoms_cell,3),[1,0,2]) 
+    return Rj.mean(0)
+
+def get_fractional_hess(hess, natoms_cell, nnc, n_unit_cells):
+    fractional_hess = np.zeros((natoms_cell*3,natoms_cell*3,nnc*n_unit_cells**3))
+    for i in range(nnc*n_unit_cells**3):
+        fractional_hess[:,:,i] = hess[i*natoms_cell*3:(i+1)*natoms_cell*3,:natoms_cell*3]
+
+    return fractional_hess
