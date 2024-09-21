@@ -57,26 +57,32 @@ class post_analysis():
         self.hess_data = np.load(self.save_dir + '/hessian.npz')
         self.K_lmp = self.hess_data['hess_lammps']
         self.K_gnn = self.hess_data['hess_gnn']
-        self.k_gnn = 0.5*(self.K_gnn + self.K_gnn.T)
+        self.K_gnn = 0.5*(self.K_gnn + self.K_gnn.T)
         if self.element == 'Ar':
             self.m = 39.9*1.67377e-27
             self.d = 3.405e-10
             self.e = 0.0103207*1.602e-19
+            self.m0 = 1.0
         elif self.element == 'Si':
-            self.m = 28.085*1.67377e-27
+            self.m = 1.67377e-27
             self.d = 1e-10
             self.e = 1.602e-19
+            self.m0 = 28.085
         elif self.element == 'Pt':
-            self.m = 195.08*1.67377e-27
+            self.m = 1.67377e-27
             self.d = 1e-10
             self.e = 1.602e-19
+            self.m0 = 195.08
         elif self.element == 'Ni':
-            self.m = 58.693*1.67377e-27
+            self.m = 1.67377e-27
             self.d = 1e-10
             self.e = 1.602e-19
+            self.m0 = 58.693
         else:
             raise ValueError('Invalid element. Send note to authors.')
+        self.K_gnn /= self.m0
         self.conv = (self.e/self.d**2/self.m)**0.5
+        self.convert = (self.e/self.d**2/self.m/self.m0)**0.5
 
     def calc_phonon_dispersion_from_hessian(self, K_lmp):
         if self.system == 'fcc':
@@ -101,7 +107,7 @@ class post_analysis():
             self.labels = [r'$\Gamma$',r'$X$',r'$W$',r'$K$',r'$\Gamma$',r'$L$']
 
         k_dof = K_lmp.shape[0]
-        hess = K_lmp*self.conv**2
+        hess = K_lmp*self.convert**2
         n_unit_cells = int(np.rint((k_dof/3/natoms_unit_cell)**(1/3)))	
         R = map_to_ref(self.init_pos, self.h, natoms_cell)
         
@@ -469,12 +475,12 @@ class post_analysis():
         self.omegas_gnn = np.sqrt(self.u_gnn)/2/np.pi/1e12
         self.omegas_lmp = np.sqrt(self.u_lmp)/2/np.pi/1e12
         np.savez(self.save_dir+'/phdisp.npz', omegas_gnn=self.omegas_gnn, omegas_lmp=self.omegas_lmp)
-        for k, omega in enumerate(self.omegas_gnn):
+        for k, omega in enumerate(self.omegas_gnn.T):
             if k == 0:
                 plt.plot(omega, 'r', label='GNN')
             else:
                 plt.plot(omega, 'r')
-        for k, omega in enumerate(self.omegas_lmp):
+        for k, omega in enumerate(self.omegas_lmp.T):
             if k == 0:
                 plt.plot(omega, 'b', label='LAMMPS')
             else:
