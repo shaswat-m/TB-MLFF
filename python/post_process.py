@@ -12,17 +12,19 @@
 # --------------------------------------------------------
 
 import argparse
-import json
-import os, sys
-from copy import deepcopy
 import itertools
-from functools import partial
+import json
 import multiprocessing as mp
-import numpy as np
+import os
+import sys
+from copy import deepcopy
+from functools import partial
 
-from pyscal_util import *
+import numpy as np
 from md_util import *
 from post_util import *
+from pyscal_util import *
+
 
 class post_analysis():
     def __init__(self, timestep = 0.01078, dump_filename = 'dump_name', func = 'MSD',

@@ -1,15 +1,20 @@
-import openmm as mm
-from sys import stdout
-from openmmtools import integrators
-from openmmtools.integrators import ThermostatedIntegrator, NoseHooverChainVelocityVerletIntegrator
-from openmmtools.constants import kB
-from openmmtools import respa, utils
-from openmm.app import *
-import openmm.unit as unit
 import logging
+from sys import stdout
+
+import openmm as mm
+import openmm.unit as unit
+from openmm.app import *
+from openmmtools import integrators, respa, utils
+from openmmtools.constants import kB
+from openmmtools.integrators import (
+    NoseHooverChainVelocityVerletIntegrator,
+    ThermostatedIntegrator,
+)
+
 # Energy unit used by OpenMM unit system
 _OPENMM_ENERGY_UNIT = unit.kilojoules_per_mole
 from openmmtools import states
+
 logger = logging.getLogger(__name__)
 import numpy as np
 
@@ -40,7 +45,12 @@ class HackAndersenVVIntegrator(ThermostatedIntegrator):
 
     """
 
-    def __init__(self, temperature=298 * unit.kelvin, collision_rate=91.0 / unit.picoseconds, timestep=1.0 * unit.femtoseconds):
+    def __init__(
+        self,
+        temperature=298 * unit.kelvin,
+        collision_rate=91.0 / unit.picoseconds,
+        timestep=1.0 * unit.femtoseconds,
+    ):
         """Construct a velocity Verlet integrator with Andersen thermostat, implemented as per-particle collisions (rather than massive collisions).
 
         Parameters
@@ -58,24 +68,34 @@ class HackAndersenVVIntegrator(ThermostatedIntegrator):
         #
         # Integrator initialization.
         #
-        self.addGlobalVariable("p_collision", timestep * collision_rate)  # per-particle collision probability per timestep
-        self.addPerDofVariable("sigma_v", 0)  # velocity distribution stddev for Maxwell-Boltzmann (computed later)
-        self.addPerDofVariable("collision", 0)  # 1 if collision has occured this timestep, 0 otherwise
+        self.addGlobalVariable(
+            "p_collision", timestep * collision_rate
+        )  # per-particle collision probability per timestep
+        self.addPerDofVariable(
+            "sigma_v", 0
+        )  # velocity distribution stddev for Maxwell-Boltzmann (computed later)
+        self.addPerDofVariable(
+            "collision", 0
+        )  # 1 if collision has occured this timestep, 0 otherwise
         self.addPerDofVariable("x1", 0)  # for constraints
 
         #
         # Update velocities from Maxwell-Boltzmann distribution for particles that collide.
         #
         self.addComputeTemperatureDependentConstants({"sigma_v": "sqrt(kT/m)"})
-        self.addComputePerDof("collision", "step(p_collision-uniform)")  # if collision has occured this timestep, 0 otherwise
-        self.addComputePerDof("v", "(1-collision)*v + collision*sigma_v*gaussian")  # randomize velocities of particles that have collided
+        self.addComputePerDof(
+            "collision", "step(p_collision-uniform)"
+        )  # if collision has occured this timestep, 0 otherwise
+        self.addComputePerDof(
+            "v", "(1-collision)*v + collision*sigma_v*gaussian"
+        )  # randomize velocities of particles that have collided
 
         #
         # Velocity Verlet step
 
         # hacky force 1
-        self.addPerDofVariable("test1", 0.)
-        self.addPerDofVariable("test2", 0.)
+        self.addPerDofVariable("test1", 0.0)
+        self.addPerDofVariable("test2", 0.0)
         #
         self.addUpdateContextState()
         self.addComputePerDof("v", "v+0.5*dt*test1/m")
@@ -90,12 +110,13 @@ class HackAndersenVVIntegrator(ThermostatedIntegrator):
 class HackLangevinIntegrator(ThermostatedIntegrator):
     _kinetic_energy = "0.5 * m * v * v"
 
-    def __init__(self,
-                 temperature=298.0 * unit.kelvin,
-                 collision_rate=1.0 / unit.picoseconds,
-                 timestep=1.0 * unit.femtoseconds,
-                 constraint_tolerance=1e-8,
-                 ):
+    def __init__(
+        self,
+        temperature=298.0 * unit.kelvin,
+        collision_rate=1.0 / unit.picoseconds,
+        timestep=1.0 * unit.femtoseconds,
+        constraint_tolerance=1e-8,
+    ):
         """
         One way to divide the Langevin system is into three parts which can each be solved "exactly:"
         - R: Linear "drift" / Constrained "drift"
@@ -128,7 +149,7 @@ class HackLangevinIntegrator(ThermostatedIntegrator):
         self.addGlobalVariable("a", np.exp(-gamma * h))
 
         # Velocity mixing parameter: random velocity component
-        self.addGlobalVariable("b", np.sqrt(1 - np.exp(- 2 * gamma * h)))
+        self.addGlobalVariable("b", np.sqrt(1 - np.exp(-2 * gamma * h)))
 
         # Positions before application of position constraints
         self.addPerDofVariable("x1", 0)
@@ -168,11 +189,12 @@ class HackLangevinIntegrator(ThermostatedIntegrator):
         # self.addComputePerDof("v", "v + (dt / 2) * f / m")
         # self.addConstrainVelocities()
 
+
 class HackHalfVelocityIntegrator(mm.CustomIntegrator):
     def __init__(self, timestep):
         super(HackHalfVelocityIntegrator, self).__init__(timestep)
         # same as in openmm.app.StateDataReporter._initializeConstants
-        self.addPerDofVariable('gnn_force', 0)
+        self.addPerDofVariable("gnn_force", 0)
         # update velocities the second time, B
         self.addComputePerDof("v", "v + (dt / 2) * gnn_force / m")
         self.addConstrainVelocities()
@@ -183,12 +205,25 @@ class Hack1stHalfNoseHooverIntegrator(ThermostatedIntegrator):
     YSWeights = {
         1: [1.0000000000000000],
         3: [0.8289815435887510, -0.6579630871775020, 0.8289815435887510],
-        5: [0.2967324292201065, 0.2967324292201065, -0.1869297168804260, 0.2967324292201065, 0.2967324292201065]
+        5: [
+            0.2967324292201065,
+            0.2967324292201065,
+            -0.1869297168804260,
+            0.2967324292201065,
+            0.2967324292201065,
+        ],
     }
 
-    def __init__(self, system=None, temperature=298 * unit.kelvin, collision_frequency=50 / unit.picoseconds,
-                 timestep=0.001 * unit.picoseconds, chain_length=5, num_mts=5, num_yoshidasuzuki=5):
-
+    def __init__(
+        self,
+        system=None,
+        temperature=298 * unit.kelvin,
+        collision_frequency=50 / unit.picoseconds,
+        timestep=0.001 * unit.picoseconds,
+        chain_length=5,
+        num_mts=5,
+        num_yoshidasuzuki=5,
+    ):
         super(Hack1stHalfNoseHooverIntegrator, self).__init__(temperature, timestep)
 
         #
@@ -199,25 +234,31 @@ class Hack1stHalfNoseHooverIntegrator(ThermostatedIntegrator):
         try:
             self.weights = self.YSWeights[self.n_ys]
         except KeyError:
-            raise Exception("Invalid Yoshida-Suzuki value. Allowed values are: %s" %
-                            ",".join(map(str, self.YSWeights.keys())))
+            raise Exception(
+                "Invalid Yoshida-Suzuki value. Allowed values are: %s"
+                % ",".join(map(str, self.YSWeights.keys()))
+            )
         if chain_length < 0:
             raise Exception("Nosé-Hoover chain length must be at least 0")
         if chain_length == 0:
-            logger.warning('Nosé-Hoover chain length is 0; falling back to regular velocity verlet algorithm.')
+            logger.warning(
+                "Nosé-Hoover chain length is 0; falling back to regular velocity verlet algorithm."
+            )
         self.M = chain_length
 
         # Define the "mass" of the thermostat particles (multiply by ndf for particle 0)
-        kT = self.getGlobalVariableByName('kT')
-        frequency = collision_frequency.value_in_unit(unit.picoseconds ** -1)
-        Q = kT / frequency ** 2
+        kT = self.getGlobalVariableByName("kT")
+        frequency = collision_frequency.value_in_unit(unit.picoseconds**-1)
+        Q = kT / frequency**2
 
         #
         # Compute the number of degrees of freedom.
         #
         if system is None:
-            logger.warning('The system was not passed to the NoseHooverChainVelocityVerletIntegrator. '
-                           'For systems with constraints, the simulation will run at the wrong temperature.')
+            logger.warning(
+                "The system was not passed to the NoseHooverChainVelocityVerletIntegrator. "
+                "For systems with constraints, the simulation will run at the wrong temperature."
+            )
             # Fall back to old scheme, which only works for unconstrained systems
             self.addGlobalVariable("ndf", 0)
             self.addPerDofVariable("ones", 1.0)
@@ -229,7 +270,10 @@ class Hack1stHalfNoseHooverIntegrator(ThermostatedIntegrator):
                 if system.getParticleMass(i) > 0 * unit.dalton:
                     dof += 3
             dof -= system.getNumConstraints()
-            if any(type(system.getForce(i)) == mm.CMMotionRemover for i in range(system.getNumForces())):
+            if any(
+                type(system.getForce(i)) == mm.CMMotionRemover
+                for i in range(system.getNumForces())
+            ):
                 dof -= 3
 
             self.addGlobalVariable("ndf", dof)  # number of degrees of freedom
@@ -252,9 +296,15 @@ class Hack1stHalfNoseHooverIntegrator(ThermostatedIntegrator):
         #
         for i in range(self.M):
             self.addGlobalVariable("xi{}".format(i), 0)  # Thermostat particle
-            self.addGlobalVariable("vxi{}".format(i), 0)  # Thermostat particle velocities in ps^-1
-            self.addGlobalVariable("G{}".format(i), -frequency ** 2)  # Forces on thermostat particles in ps^-2
-            self.addGlobalVariable("Q{}".format(i), 0)  # Thermostat "masses" in ps^2 kJ/mol
+            self.addGlobalVariable(
+                "vxi{}".format(i), 0
+            )  # Thermostat particle velocities in ps^-1
+            self.addGlobalVariable(
+                "G{}".format(i), -(frequency**2)
+            )  # Forces on thermostat particles in ps^-2
+            self.addGlobalVariable(
+                "Q{}".format(i), 0
+            )  # Thermostat "masses" in ps^2 kJ/mol
         # The masses need the number of degrees of freedom, which is approximated here.  Need a
         # better solution eventually, to properly account for constraints, translations, etc.
         self.addPerDofVariable("x1", 0)
@@ -264,11 +314,12 @@ class Hack1stHalfNoseHooverIntegrator(ThermostatedIntegrator):
                 self.addComputeGlobal("Q{}".format(i), "Q")
 
         # hacky force
-        self.addPerDofVariable("force_last", 0.)
+        self.addPerDofVariable("force_last", 0.0)
         #
         # Take a velocity verlet step, with propagation of thermostat before and after
         #
-        if self.M: self.propagateNHC()
+        if self.M:
+            self.propagateNHC()
         self.addUpdateContextState()
         self.addComputePerDof("v", "v+0.5*dt*force_last/m")
         self.addComputePerDof("x", "x+dt*v")
@@ -277,41 +328,55 @@ class Hack1stHalfNoseHooverIntegrator(ThermostatedIntegrator):
         self.addComputePerDof("v", "v+(x-x1)/dt")
 
     def reset(self, new_frequency):
-        kT = self.getGlobalVariableByName('kT')
-        frequency = new_frequency.value_in_unit(unit.picoseconds ** -1)
-        Q = kT / frequency ** 2
-        self.setGlobalVariableByName('Q', Q)
+        kT = self.getGlobalVariableByName("kT")
+        frequency = new_frequency.value_in_unit(unit.picoseconds**-1)
+        Q = kT / frequency**2
+        self.setGlobalVariableByName("Q", Q)
         self.addComputeGlobal("Q0", "ndf*Q")
         for i in range(1, self.M):
             self.addComputeGlobal("Q{}".format(i), "Q")
 
-
     def propagateNHC(self):
-        """ Propagate the Nosé-Hoover chain """
+        """Propagate the Nosé-Hoover chain"""
         self.addComputeGlobal("scale", "1.0")
         self.addComputeSum("KE2", "m*v^2")
         self.addComputeGlobal("G0", "(KE2 - ndf*kT)/Q0")
         for ncval in range(self.n_c):
             for nysval in range(self.n_ys):
                 self.addComputeGlobal("wdt", "w{}*dt/{}".format(nysval, self.n_c))
-                self.addComputeGlobal("vxi{}".format(self.M-1), "vxi{} + 0.25*wdt*G{}".format(self.M-1, self.M-1))
-                for j in range(self.M-2, -1, -1):
-                    self.addComputeGlobal("aa", "exp(-0.125*wdt*vxi{})".format(j+1))
-                    self.addComputeGlobal("vxi{}".format(j), "aa*(aa*vxi{} + 0.25*wdt*G{})".format(j,j))
+                self.addComputeGlobal(
+                    "vxi{}".format(self.M - 1),
+                    "vxi{} + 0.25*wdt*G{}".format(self.M - 1, self.M - 1),
+                )
+                for j in range(self.M - 2, -1, -1):
+                    self.addComputeGlobal("aa", "exp(-0.125*wdt*vxi{})".format(j + 1))
+                    self.addComputeGlobal(
+                        "vxi{}".format(j), "aa*(aa*vxi{} + 0.25*wdt*G{})".format(j, j)
+                    )
                 # update particle velocities
                 self.addComputeGlobal("aa", "exp(-0.5*wdt*vxi0)")
                 self.addComputeGlobal("scale", "scale*aa")
                 # update the thermostat positions
                 for j in range(self.M):
-                    self.addComputeGlobal("xi{}".format(j), "xi{} + 0.5*wdt*vxi{}".format(j,j))
+                    self.addComputeGlobal(
+                        "xi{}".format(j), "xi{} + 0.5*wdt*vxi{}".format(j, j)
+                    )
                 # update the forces
                 self.addComputeGlobal("G0", "(scale*scale*KE2 - ndf*kT)/Q0")
                 # update thermostat velocities
-                for j in range(self.M-1):
-                    self.addComputeGlobal("aa", "exp(-0.125*wdt*vxi{})".format(j+1))
-                    self.addComputeGlobal("vxi{}".format(j), "aa*(aa*vxi{} + 0.25*wdt*G{})".format(j,j))
-                    self.addComputeGlobal("G{}".format(j+1), "(Q{}*vxi{}*vxi{} - kT)/Q{}".format(j,j,j,j+1))
-                self.addComputeGlobal("vxi{}".format(self.M-1), "vxi{} + 0.25*wdt*G{}".format(self.M-1, self.M-1))
+                for j in range(self.M - 1):
+                    self.addComputeGlobal("aa", "exp(-0.125*wdt*vxi{})".format(j + 1))
+                    self.addComputeGlobal(
+                        "vxi{}".format(j), "aa*(aa*vxi{} + 0.25*wdt*G{})".format(j, j)
+                    )
+                    self.addComputeGlobal(
+                        "G{}".format(j + 1),
+                        "(Q{}*vxi{}*vxi{} - kT)/Q{}".format(j, j, j, j + 1),
+                    )
+                self.addComputeGlobal(
+                    "vxi{}".format(self.M - 1),
+                    "vxi{} + 0.25*wdt*G{}".format(self.M - 1, self.M - 1),
+                )
         # update particle velocities
         self.addComputePerDof("v", "scale*v")
 
@@ -322,12 +387,18 @@ class Hack1stHalfNoseHooverIntegrator(ThermostatedIntegrator):
     def copy_state_from_integrator(self, integrator):
         # copy from another integrator
         for i in range(self.M):
-            self.get_global_variable_from_integrator("xi{}".format(i), integrator)  # Thermostat particle
-            self.get_global_variable_from_integrator("vxi{}".format(i),
-                                                     integrator)  # Thermostat particle velocities in ps^-1
-            self.get_global_variable_from_integrator("G{}".format(i),
-                                                     integrator)  # Forces on thermostat particles in ps^-2
-            self.get_global_variable_from_integrator("Q{}".format(i), integrator)  # Thermostat "masses" in ps^2 kJ/mol
+            self.get_global_variable_from_integrator(
+                "xi{}".format(i), integrator
+            )  # Thermostat particle
+            self.get_global_variable_from_integrator(
+                "vxi{}".format(i), integrator
+            )  # Thermostat particle velocities in ps^-1
+            self.get_global_variable_from_integrator(
+                "G{}".format(i), integrator
+            )  # Forces on thermostat particles in ps^-2
+            self.get_global_variable_from_integrator(
+                "Q{}".format(i), integrator
+            )  # Thermostat "masses" in ps^2 kJ/mol
 
 
 # second half of nose hoover integrator
@@ -335,12 +406,25 @@ class Hack2ndHalfNoseHooverIntegrator(ThermostatedIntegrator):
     YSWeights = {
         1: [1.0000000000000000],
         3: [0.8289815435887510, -0.6579630871775020, 0.8289815435887510],
-        5: [0.2967324292201065, 0.2967324292201065, -0.1869297168804260, 0.2967324292201065, 0.2967324292201065]
+        5: [
+            0.2967324292201065,
+            0.2967324292201065,
+            -0.1869297168804260,
+            0.2967324292201065,
+            0.2967324292201065,
+        ],
     }
 
-    def __init__(self, system=None, temperature=298 * unit.kelvin, collision_frequency=50 / unit.picoseconds,
-                 timestep=0.001 * unit.picoseconds, chain_length=5, num_mts=5, num_yoshidasuzuki=5):
-
+    def __init__(
+        self,
+        system=None,
+        temperature=298 * unit.kelvin,
+        collision_frequency=50 / unit.picoseconds,
+        timestep=0.001 * unit.picoseconds,
+        chain_length=5,
+        num_mts=5,
+        num_yoshidasuzuki=5,
+    ):
         super(Hack2ndHalfNoseHooverIntegrator, self).__init__(temperature, timestep)
 
         #
@@ -351,25 +435,31 @@ class Hack2ndHalfNoseHooverIntegrator(ThermostatedIntegrator):
         try:
             self.weights = self.YSWeights[self.n_ys]
         except KeyError:
-            raise Exception("Invalid Yoshida-Suzuki value. Allowed values are: %s" %
-                            ",".join(map(str, self.YSWeights.keys())))
+            raise Exception(
+                "Invalid Yoshida-Suzuki value. Allowed values are: %s"
+                % ",".join(map(str, self.YSWeights.keys()))
+            )
         if chain_length < 0:
             raise Exception("Nosé-Hoover chain length must be at least 0")
         if chain_length == 0:
-            logger.warning('Nosé-Hoover chain length is 0; falling back to regular velocity verlet algorithm.')
+            logger.warning(
+                "Nosé-Hoover chain length is 0; falling back to regular velocity verlet algorithm."
+            )
         self.M = chain_length
 
         # Define the "mass" of the thermostat particles (multiply by ndf for particle 0)
-        kT = self.getGlobalVariableByName('kT')
-        frequency = collision_frequency.value_in_unit(unit.picoseconds ** -1)
-        Q = kT / frequency ** 2
+        kT = self.getGlobalVariableByName("kT")
+        frequency = collision_frequency.value_in_unit(unit.picoseconds**-1)
+        Q = kT / frequency**2
 
         #
         # Compute the number of degrees of freedom.
         #
         if system is None:
-            logger.warning('The system was not passed to the NoseHooverChainVelocityVerletIntegrator. '
-                           'For systems with constraints, the simulation will run at the wrong temperature.')
+            logger.warning(
+                "The system was not passed to the NoseHooverChainVelocityVerletIntegrator. "
+                "For systems with constraints, the simulation will run at the wrong temperature."
+            )
             # Fall back to old scheme, which only works for unconstrained systems
             self.addGlobalVariable("ndf", 0)
             self.addPerDofVariable("ones", 1.0)
@@ -381,7 +471,10 @@ class Hack2ndHalfNoseHooverIntegrator(ThermostatedIntegrator):
                 if system.getParticleMass(i) > 0 * unit.dalton:
                     dof += 3
             dof -= system.getNumConstraints()
-            if any(type(system.getForce(i)) == mm.CMMotionRemover for i in range(system.getNumForces())):
+            if any(
+                type(system.getForce(i)) == mm.CMMotionRemover
+                for i in range(system.getNumForces())
+            ):
                 dof -= 3
 
             self.addGlobalVariable("ndf", dof)  # number of degrees of freedom
@@ -404,9 +497,15 @@ class Hack2ndHalfNoseHooverIntegrator(ThermostatedIntegrator):
         #
         for i in range(self.M):
             self.addGlobalVariable("xi{}".format(i), 0)  # Thermostat particle
-            self.addGlobalVariable("vxi{}".format(i), 0)  # Thermostat particle velocities in ps^-1
-            self.addGlobalVariable("G{}".format(i), -frequency ** 2)  # Forces on thermostat particles in ps^-2
-            self.addGlobalVariable("Q{}".format(i), 0)  # Thermostat "masses" in ps^2 kJ/mol
+            self.addGlobalVariable(
+                "vxi{}".format(i), 0
+            )  # Thermostat particle velocities in ps^-1
+            self.addGlobalVariable(
+                "G{}".format(i), -(frequency**2)
+            )  # Forces on thermostat particles in ps^-2
+            self.addGlobalVariable(
+                "Q{}".format(i), 0
+            )  # Thermostat "masses" in ps^2 kJ/mol
         # The masses need the number of degrees of freedom, which is approximated here.  Need a
         # better solution eventually, to properly account for constraints, translations, etc.
         self.addPerDofVariable("x1", 0)
@@ -416,19 +515,20 @@ class Hack2ndHalfNoseHooverIntegrator(ThermostatedIntegrator):
                 self.addComputeGlobal("Q{}".format(i), "Q")
 
         # hacky force
-        self.addPerDofVariable("gnn_force", 0.)
+        self.addPerDofVariable("gnn_force", 0.0)
 
         self.addComputePerDof("v", "v+0.5*dt*gnn_force/m")
         self.addConstrainVelocities()
-        if self.M: self.propagateNHC()
+        if self.M:
+            self.propagateNHC()
         # Compute heat bath energies
         self.computeEnergies()
 
     def reset(self, new_frequency):
-        kT = self.getGlobalVariableByName('kT')
-        frequency = new_frequency.value_in_unit(unit.picoseconds ** -1)
-        Q = kT / frequency ** 2
-        self.setGlobalVariableByName('Q', Q)
+        kT = self.getGlobalVariableByName("kT")
+        frequency = new_frequency.value_in_unit(unit.picoseconds**-1)
+        Q = kT / frequency**2
+        self.setGlobalVariableByName("Q", Q)
         self.addComputeGlobal("Q0", "ndf*Q")
         for i in range(1, self.M):
             self.addComputeGlobal("Q{}".format(i), "Q")
@@ -438,50 +538,75 @@ class Hack2ndHalfNoseHooverIntegrator(ThermostatedIntegrator):
         self.setGlobalVariableByName(name, value)
 
     def copy_state_from_integrator(self, integrator):
-        self.get_global_variable_from_integrator("bathKE", integrator)  # Thermostat bath kinetic energy
-        self.get_global_variable_from_integrator("bathPE", integrator)  # Thermostat bath potential energy
+        self.get_global_variable_from_integrator(
+            "bathKE", integrator
+        )  # Thermostat bath kinetic energy
+        self.get_global_variable_from_integrator(
+            "bathPE", integrator
+        )  # Thermostat bath potential energy
         #
         # copy from another integrator
         #
         for i in range(self.M):
-            self.get_global_variable_from_integrator("xi{}".format(i), integrator)  # Thermostat particle
-            self.get_global_variable_from_integrator("vxi{}".format(i),
-                                                     integrator)  # Thermostat particle velocities in ps^-1
-            self.get_global_variable_from_integrator("G{}".format(i),
-                                                     integrator)  # Forces on thermostat particles in ps^-2
-            self.get_global_variable_from_integrator("Q{}".format(i), integrator)  # Thermostat "masses" in ps^2 kJ/mol
+            self.get_global_variable_from_integrator(
+                "xi{}".format(i), integrator
+            )  # Thermostat particle
+            self.get_global_variable_from_integrator(
+                "vxi{}".format(i), integrator
+            )  # Thermostat particle velocities in ps^-1
+            self.get_global_variable_from_integrator(
+                "G{}".format(i), integrator
+            )  # Forces on thermostat particles in ps^-2
+            self.get_global_variable_from_integrator(
+                "Q{}".format(i), integrator
+            )  # Thermostat "masses" in ps^2 kJ/mol
 
     def propagateNHC(self):
-        """ Propagate the Nosé-Hoover chain """
+        """Propagate the Nosé-Hoover chain"""
         self.addComputeGlobal("scale", "1.0")
         self.addComputeSum("KE2", "m*v^2")
         self.addComputeGlobal("G0", "(KE2 - ndf*kT)/Q0")
         for ncval in range(self.n_c):
             for nysval in range(self.n_ys):
                 self.addComputeGlobal("wdt", "w{}*dt/{}".format(nysval, self.n_c))
-                self.addComputeGlobal("vxi{}".format(self.M - 1), "vxi{} + 0.25*wdt*G{}".format(self.M - 1, self.M - 1))
+                self.addComputeGlobal(
+                    "vxi{}".format(self.M - 1),
+                    "vxi{} + 0.25*wdt*G{}".format(self.M - 1, self.M - 1),
+                )
                 for j in range(self.M - 2, -1, -1):
                     self.addComputeGlobal("aa", "exp(-0.125*wdt*vxi{})".format(j + 1))
-                    self.addComputeGlobal("vxi{}".format(j), "aa*(aa*vxi{} + 0.25*wdt*G{})".format(j, j))
+                    self.addComputeGlobal(
+                        "vxi{}".format(j), "aa*(aa*vxi{} + 0.25*wdt*G{})".format(j, j)
+                    )
                 # update particle velocities
                 self.addComputeGlobal("aa", "exp(-0.5*wdt*vxi0)")
                 self.addComputeGlobal("scale", "scale*aa")
                 # update the thermostat positions
                 for j in range(self.M):
-                    self.addComputeGlobal("xi{}".format(j), "xi{} + 0.5*wdt*vxi{}".format(j, j))
+                    self.addComputeGlobal(
+                        "xi{}".format(j), "xi{} + 0.5*wdt*vxi{}".format(j, j)
+                    )
                 # update the forces
                 self.addComputeGlobal("G0", "(scale*scale*KE2 - ndf*kT)/Q0")
                 # update thermostat velocities
                 for j in range(self.M - 1):
                     self.addComputeGlobal("aa", "exp(-0.125*wdt*vxi{})".format(j + 1))
-                    self.addComputeGlobal("vxi{}".format(j), "aa*(aa*vxi{} + 0.25*wdt*G{})".format(j, j))
-                    self.addComputeGlobal("G{}".format(j + 1), "(Q{}*vxi{}*vxi{} - kT)/Q{}".format(j, j, j, j + 1))
-                self.addComputeGlobal("vxi{}".format(self.M - 1), "vxi{} + 0.25*wdt*G{}".format(self.M - 1, self.M - 1))
+                    self.addComputeGlobal(
+                        "vxi{}".format(j), "aa*(aa*vxi{} + 0.25*wdt*G{})".format(j, j)
+                    )
+                    self.addComputeGlobal(
+                        "G{}".format(j + 1),
+                        "(Q{}*vxi{}*vxi{} - kT)/Q{}".format(j, j, j, j + 1),
+                    )
+                self.addComputeGlobal(
+                    "vxi{}".format(self.M - 1),
+                    "vxi{} + 0.25*wdt*G{}".format(self.M - 1, self.M - 1),
+                )
         # update particle velocities
         self.addComputePerDof("v", "scale*v")
 
     def computeEnergies(self):
-        """ Computes kinetic and potential energies for the heat bath """
+        """Computes kinetic and potential energies for the heat bath"""
         # Bath kinetic energy
         self.addComputeGlobal("bathKE", "0.0")
         for i in range(self.M):
@@ -491,4 +616,3 @@ class Hack2ndHalfNoseHooverIntegrator(ThermostatedIntegrator):
         for i in range(1, self.M):
             self.addComputeGlobal("bathPE", "bathPE + xi{}".format(i))
         self.addComputeGlobal("bathPE", "kT*bathPE")
-
